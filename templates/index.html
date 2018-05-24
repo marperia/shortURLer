@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .Name }}</title>
+</head>
+<body>
+    <h1>Hello, world! This is {{ .Name }}</h1>
+    <p><a href="/save/?url=http://google.ru">Save!</a></p>
+    <p><form action="/save/" method="post">
+        <input type="text" name="url">
+        <input type="submit" value="Make shorter!">
+    </form></p>
+    <p><a href="/get/?sha256=11639878b9753abd910a46200b5b008f1f7c0fce35b663853cf82d381c5bb938">Get!</a></p>
+    <p><form action="/get/" method="post">
+        <label for="sha256">SHA-256: </label>
+        <input type="text" name="sha256">
+        <input type="submit" value="Get link!">
+    </form></p>
+</body>
+</html>
