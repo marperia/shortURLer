@@ -13,7 +13,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"text/template"
+	"html"
 )
 
 
@@ -69,9 +69,6 @@ func ConnectToDatabase(database models.DB) *sql.DB {
 	if database.Password == "" {
 		database.Password = setting.DefaultDB.Password
 	}
-	if database.Schema == "" {
-		database.Schema = setting.DefaultDB.Schema
-	}
 	if database.Host == "" {
 		database.Host = setting.DefaultDB.Host
 	}
@@ -82,11 +79,15 @@ func ConnectToDatabase(database models.DB) *sql.DB {
 		database.Database = setting.DefaultDB.Database
 	}
 
-	connectionParams := database.Login + ":" + database.Password + "@" + database.Schema +
+	connectionParams := database.Login + ":" + database.Password + "@tcp" +
 		"(" + database.Host + ":" + database.Port + ")/" + database.Database
 
 	db, err := sql.Open(database.Driver, connectionParams)
+	if err != nil {
+		panic(err)
+	}
 
+	err = db.Ping()
 	if err != nil {
 		panic(err)
 	}
@@ -95,11 +96,9 @@ func ConnectToDatabase(database models.DB) *sql.DB {
 }
 
 
-func GetDataByKey(db *sql.DB, fieldName string, key string) (*sql.Row) {
+func GetDataByKey(db *sql.DB, table string, fieldName string, key string) (*sql.Row) {
 
-	defer db.Close()
-
-	qRow := db.QueryRow("SELECT * FROM `urls` WHERE `"+ fieldName +"`=?", key) //TODO: add table choosing
+	qRow := db.QueryRow("SELECT * FROM `" + table + "` WHERE `"+ fieldName +"`=?", key)
 
 	return qRow
 }
@@ -109,24 +108,20 @@ func SetData(db *sql.DB, table string, values []string) error {
 
 	qmsArr := make([]string, len(values))
 	var qms string
-
 	valuesInterface := []interface{}{}
-
-	defer db.Close()
 
 	if len(values) == 0 {
 		return errors.New("no values in setting data")
 	}
 
 	for i, v := range values {
-		//strArr[i] = "'" + v + "'"
 		valuesInterface = append(valuesInterface, v)
 		qmsArr[i] = "?"
 	}
 
-	qms = strings.Join(qmsArr, ", ")
+	qms = strings.Join(qmsArr, ",")
 
-	stmt, err := db.Prepare("INSERT INTO `"+ table +"` VALUES (" + qms + ")")
+	stmt, err := db.Prepare("INSERT INTO `" + table + "` VALUES (" + qms + ")")
 	if err != nil {
 		return err
 	}
@@ -148,20 +143,18 @@ func SaveURL(w http.ResponseWriter, r *http.Request) {
 
 	var HashingMethod string
 	var gURL models.URL
-	var mURL models.URL
+	var urlKey string
 	var response string
 
 	r.ParseForm()
 
 	if val := r.Form.Get("url"); val != "" {
-
 		val, err := StandardizeURL(val)
 		if err != nil {
 			UserErrorHandle(err.Error(), 400, w)
 			return
 		}
-		gURL.URL = template.HTMLEscapeString(val)
-
+		gURL.URL = html.EscapeString(val)
 	} else 	if val := r.Form.Get("custom_param"); val != "" {
 		log.Println("Custom method handler.")
 	} else {
@@ -186,21 +179,22 @@ func SaveURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	DBConn := ConnectToDatabase(setting.DefaultDB)
-	GetDataByKey(DBConn, "key", gURL.Key).Scan(&mURL.Key, &mURL.URL) // check if we already have this link
+	GetDataByKey(DBConn, "urls", "key", gURL.Key).Scan(&urlKey)
 
-	if mURL.Key != gURL.Key { // and if dont
-		DBConn := ConnectToDatabase(setting.DefaultDB)
-		values := []string{template.HTMLEscapeString(gURL.Key), template.HTMLEscapeString(gURL.URL)}
-		i := SetData(DBConn, "urls", values)
+	if urlKey != gURL.Key {
+		values := []string{html.EscapeString(gURL.Key), html.EscapeString(gURL.URL)}
+		err := SetData(DBConn, "urls", values)
 
-		if i != nil {
+		DBConn.Close()
+
+		if err != nil {
 			UserErrorHandle("mysql error", 400, w)
-			log.Println(i.Error())
+			log.Println(err.Error())
 			return
 		}
 	}
 
-	response = "http://127.0.0.1" + setting.Port + "/get?" + HashingMethod + "=" + gURL.Key
+	response = "http://" + setting.Host + setting.Port + "/get?" + HashingMethod + "=" + gURL.Key
 	w.Write([]byte(response))
 	return
 }
@@ -225,15 +219,14 @@ func GetURL(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	switch hm := HashingMethod; hm {
+	switch HashingMethod {
 		case "sha256":
 			err := Sha256Checker(GettingHash)
 			if err != nil {
 				UserErrorHandle(err.Error(), 400, w)
 				return
-			} else {
-				CheckPassed = true
 			}
+			CheckPassed = true
 		case "custom_method":
 			log.Println("Custom method handler.")
 			CheckPassed = true
@@ -244,7 +237,9 @@ func GetURL(w http.ResponseWriter, r *http.Request) {
 
 
 	if CheckPassed == true {
-		data = GetDataByKey(ConnectToDatabase(setting.DefaultDB), "key", GettingHash)
+		DBConn := ConnectToDatabase(setting.DefaultDB)
+		data = GetDataByKey(DBConn, "urls", "key", GettingHash)
+		DBConn.Close()
 		data.Scan(&gURL.Key, &gURL.URL)
 	}
 
@@ -253,7 +248,7 @@ func GetURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response = gURL.URL
+	response = html.UnescapeString(gURL.URL)
 	w.Write([]byte(response))
 	return
 }

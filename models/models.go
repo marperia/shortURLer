@@ -9,7 +9,6 @@ type DB struct {
 	Driver string
 	Login string
 	Password string
-	Schema string
 	Host string
 	Port string
 	Database string

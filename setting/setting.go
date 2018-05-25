@@ -5,6 +5,7 @@ import "../models"
 var (
 	// server setting section
 	Port = ":9090"
+	Host = "127.0.0.1"
 
 
 	// app setting section
@@ -19,7 +20,6 @@ var (
 	DatabaseDriver = "mysql"
 	DatabaseLogin = "root"
 	DatabasePassword = "12345trewq"
-	DatabaseSchema = "tcp"
 	DatabaseHost = "127.0.0.1"
 	DatabasePort = "3306"
 
@@ -30,7 +30,6 @@ var DefaultDB = models.DB {
 	Driver: DatabaseDriver,
 	Login: DatabaseLogin,
 	Password: DatabasePassword,
-	Schema: DatabaseSchema,
 	Host: DatabaseHost,
 	Port: DatabasePort,
 	Database: DefaultDatabase,
