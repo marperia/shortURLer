@@ -1,39 +1,46 @@
 package controllers
 
-
 import (
-	"net/http"
-	"encoding/hex"
-	"crypto/sha256"
-	"../setting"
-	"../models"
 	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
-	"errors"
-	"log"
+	"github.com/marperia/shortURLer/models"
+	"github.com/marperia/shortURLer/setting"
+	"math"
+
+	"crypto/sha256"
+	"encoding/hex"
+	"html"
+	"net/http"
 	"regexp"
 	"strings"
-	"html"
+
+	"errors"
+	"log"
 )
 
+const Base64Alphabet = "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
+const Base16Alphabet = "0123456789abcdef"
 
 func UserErrorHandle(errorText string, errorCode int, nw http.ResponseWriter) {
+
 	err := errors.New(errorText)
 	log.Println("user error:", err)
 	nw.WriteHeader(errorCode)
 	nw.Write([]byte(err.Error()))
+
 }
 
-
 func Sha256Checker(hash string) error {
+
 	lowerHash := strings.ToLower(hash)
 	re := regexp.MustCompile("[0-9a-f]{64}")
+
 	if rhash := re.FindString(lowerHash); rhash == "" {
 		return errors.New("invalid sha256 hash format")
 	}
-	return nil
-}
 
+	return nil
+
+}
 
 func StandardizeURL(rawLink string) (string, error) {
 
@@ -49,101 +56,66 @@ func StandardizeURL(rawLink string) (string, error) {
 	}
 
 	return "", errors.New("not a valid url")
+
 }
 
-/*
- *
- * Section below should be replaced to an ORM
- *
- */
+func TraceURL(link string) (string, error) {
 
-
-func ConnectToDatabase(database models.DB) *sql.DB {
-
-	if database.Driver == "" {
-		database.Driver = setting.DefaultDB.Driver
-	}
-	if database.Login == "" {
-		database.Login = setting.DefaultDB.Login
-	}
-	if database.Password == "" {
-		database.Password = setting.DefaultDB.Password
-	}
-	if database.Host == "" {
-		database.Host = setting.DefaultDB.Host
-	}
-	if database.Port == "" {
-		database.Port = setting.DefaultDB.Port
-	}
-	if database.Database == "" {
-		database.Database = setting.DefaultDB.Database
-	}
-
-	connectionParams := database.Login + ":" + database.Password + "@tcp" +
-		"(" + database.Host + ":" + database.Port + ")/" + database.Database
-
-	db, err := sql.Open(database.Driver, connectionParams)
+	resp, err := http.Get(link)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	err = db.Ping()
-	if err != nil {
-		panic(err)
-	}
+	finalURL := resp.Request.URL.String()
 
-	return db
+	return finalURL, nil
+
 }
 
+func BaseEncode(id int, alph string) (string) {
 
-func GetDataByKey(db *sql.DB, table string, fieldName string, key string) (*sql.Row) {
+	var Encoded string
+	var modInt int
+	alphArray := strings.Split(alph, "")
+	baseCount := len(alph)
 
-	qRow := db.QueryRow("SELECT * FROM `" + table + "` WHERE `"+ fieldName +"`=?", key)
+	for (id >= baseCount) {
+		modInt = id % baseCount
+		id = id / baseCount
+		Encoded = alphArray[modInt] + Encoded
+	}
 
-	return qRow
+	modInt = id % baseCount
+	id = id / baseCount
+	Encoded = alphArray[modInt] + Encoded
+
+	return Encoded
+
 }
 
+func BaseDecode(encodedStr string, alph string) (int) {
 
-func SetData(db *sql.DB, table string, values []string) error {
+	strLen := float64(len(encodedStr) - 1)
+	baseCount := float64(len(alph))
+	var decodedStr int
+	var charInd int
 
-	qmsArr := make([]string, len(values))
-	var qms string
-	valuesInterface := []interface{}{}
-
-	if len(values) == 0 {
-		return errors.New("no values in setting data")
+	for _, letter := range encodedStr {
+		charInd = strings.Index(alph, string(letter))
+		// custom power function
+		//decodedStr = decodedStr + Power(baseCount, strLen)*charInd
+		decodedStr = decodedStr + int(math.Pow(baseCount, strLen))*charInd
+		strLen--
 	}
 
-	for i, v := range values {
-		valuesInterface = append(valuesInterface, v)
-		qmsArr[i] = "?"
-	}
-
-	qms = strings.Join(qmsArr, ",")
-
-	stmt, err := db.Prepare("INSERT INTO `" + table + "` VALUES (" + qms + ")")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(valuesInterface...)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return decodedStr
 }
 
-/*
- *
- * Section above should be replaced to an ORM
- *
- */
-
-func SaveURL(w http.ResponseWriter, r *http.Request) {
+func (u *models.URL) Save(w http.ResponseWriter, r *http.Request) {
 
 	var HashingMethod string
 	var gURL models.URL
-	var urlKey string
+	var myURL models.URL
 	var response string
 
 	r.ParseForm()
@@ -155,7 +127,7 @@ func SaveURL(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		gURL.URL = html.EscapeString(val)
-	} else 	if val := r.Form.Get("custom_param"); val != "" {
+	} else if val := r.Form.Get("custom_param"); val != "" {
 		log.Println("Custom method handler.")
 	} else {
 		UserErrorHandle("empty url value", 400, w)
@@ -168,22 +140,23 @@ func SaveURL(w http.ResponseWriter, r *http.Request) {
 		HashingMethod = setting.DefaultHashingMethod
 	}
 
-
 	if HashingMethod == "sha256" {
 		hash256 := sha256.New()
 		hash256.Write([]byte(gURL.URL))
 		gURL.Key = hex.EncodeToString(hash256.Sum([]byte(nil)))
+	} else if HashingMethod == "base58" {
+
 	} else {
 		UserErrorHandle("unknown hashing method", 400, w)
 		return
 	}
 
-	DBConn := ConnectToDatabase(setting.DefaultDB)
-	GetDataByKey(DBConn, "urls", "key", gURL.Key).Scan(&urlKey)
+	DBConn := setting.DefaultDB.Connect()
+	setting.DefaultDB.GetDataByKey("urls", "key", gURL.Key).Scan(&myURL.Key, &myURL.URL)
 
-	if urlKey != gURL.Key {
+	if myURL.Key != gURL.Key {
 		values := []string{html.EscapeString(gURL.Key), html.EscapeString(gURL.URL)}
-		err := SetData(DBConn, "urls", values)
+		err := models.SetData(DBConn, "urls", values)
 
 		DBConn.Close()
 
@@ -198,7 +171,6 @@ func SaveURL(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(response))
 	return
 }
-
 
 func GetURL(w http.ResponseWriter, r *http.Request) {
 
@@ -220,25 +192,24 @@ func GetURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch HashingMethod {
-		case "sha256":
-			err := Sha256Checker(GettingHash)
-			if err != nil {
-				UserErrorHandle(err.Error(), 400, w)
-				return
-			}
-			CheckPassed = true
-		case "custom_method":
-			log.Println("Custom method handler.")
-			CheckPassed = true
-		default:
-			UserErrorHandle("hashing method has not set", 400, w)
+	case "sha256":
+		err := Sha256Checker(GettingHash)
+		if err != nil {
+			UserErrorHandle(err.Error(), 400, w)
 			return
+		}
+		CheckPassed = true
+	case "custom_method":
+		log.Println("Custom method handler.")
+		CheckPassed = true
+	default:
+		UserErrorHandle("hashing method has not set", 400, w)
+		return
 	}
 
-
 	if CheckPassed == true {
-		DBConn := ConnectToDatabase(setting.DefaultDB)
-		data = GetDataByKey(DBConn, "urls", "key", GettingHash)
+		DBConn := setting.DefaultDB.Connect()
+		data = setting.DefaultDB.GetDataByKey("urls", "key", GettingHash)
 		DBConn.Close()
 		data.Scan(&gURL.Key, &gURL.URL)
 	}

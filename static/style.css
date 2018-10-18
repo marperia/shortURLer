@@ -1,0 +1,38 @@
+body {
+    margin: auto;
+    font-family: Helvetica, Arial, SansSerif;
+    font-size: 14px;
+}
+
+.container {
+    width: 100%;
+    margin: 0px;
+    padding: 0px;
+}
+
+.full {
+    width: 85%;
+    margin: 0px;
+    padding: 10px 20px;
+}
+
+.half {
+    width: 45%;
+    float: left;
+    margin: 0px;
+    padding: 10px 20px;
+}
+
+.button {
+    border: 2px solid green;
+    border-radius: 3px;
+    text-decoration: none;
+    color: inherit;
+    padding: 7px 10px;
+}
+
+.button:hover {
+    opacity: 0.8;
+    background: green;
+    color: white;
+}

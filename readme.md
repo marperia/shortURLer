@@ -1,4 +1,11 @@
+
 # shortURLer
+###This repo should stay here for the story
+
+I would like to apologise to everyone who had to read that terrible code. I used to be small and stupid, but now I'm just foolish.
+
+It's no longer maintainable (and never was). It's just a showcase what can I do with a new language or tech in 72 hours.
+
 ### Usage
 ```
 go 

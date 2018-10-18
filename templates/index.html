@@ -2,20 +2,36 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="static/style.css">
     <title>{{ .Name }}</title>
 </head>
 <body>
-    <h1>Hello, world! This is {{ .Name }}</h1>
-    <p><a href="/save/?url=http://google.ru">Save!</a></p>
-    <p><form action="/save/" method="post">
-        <input type="text" name="url">
-        <input type="submit" value="Make shorter!">
-    </form></p>
-    <p><a href="/get/?sha256=11639878b9753abd910a46200b5b008f1f7c0fce35b663853cf82d381c5bb938">Get!</a></p>
-    <p><form action="/get/" method="post">
-        <label for="sha256">SHA-256: </label>
-        <input type="text" name="sha256">
-        <input type="submit" value="Get link!">
-    </form></p>
+    <div class="container">
+        <div class="full">
+            <h1>Hello, world! This is {{ .Name }}</h1>
+        </div>
+        <div class="half">
+            <h3>Save</h3>
+            <p><a href="/save/?url=http://yandex.ru/" class="button">Save!</a></p>
+            <p><form action="/save/" method="post">
+                <input type="text" name="url">
+                <input type="submit" value="Make shorter!">
+            </form></p>
+        </div>
+        <div class="half">
+            <h3>Get</h3>
+            <p><a href="get/?sha256=824f599e3300a9fefa7161921e6fa49aa0ecc1cc9cfdb1f84e972e1d556eb29b" class="button">Try it!</a></p>
+            <p><form action="/get/" method="post">
+                <label for="sha256">SHA-256: </label>
+                <input type="text" name="sha256">
+                <input type="submit" value="Get link!">
+            </form></p>
+            <p><form action="/get/" method="post">
+                <label for="base58">Base58: </label>
+                <input type="text" name="base58">
+                <input type="submit" value="Get link!">
+            </form></p>
+        </div>
+    </div>
 </body>
 </html>

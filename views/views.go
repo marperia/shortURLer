@@ -3,11 +3,14 @@ package views
 import (
 	"net/http"
 	"html/template"
-	"../setting"
+	"github.com/marperia/shortURLer/setting"
 )
 
 func Home(w http.ResponseWriter, r *http.Request) {
-	t, _ := template.ParseFiles("./templates/index.html")
+	t, err := template.ParseFiles("./templates/index.html")
+	if err != nil {
+
+	}
 	data := map[string]string {
 		"Name": setting.AppName,
 	}

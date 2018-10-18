@@ -1,6 +1,6 @@
 package setting
 
-import "../models"
+import "github.com/marperia/shortURLer/models"
 
 var (
 	// server setting section

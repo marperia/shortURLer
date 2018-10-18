@@ -587,3 +587,7 @@ shortURLer/
 3. В настройки добавлен параметр **Host**;
 4. Код переписан более «чисто»;
 5. Прочие мелкие исправления;
+
+**UPD 14.10.18:**
+
+I would like to apologise to everyone who had to read that terrible code. I used to be small and stupid, but now I'm just foolish.
